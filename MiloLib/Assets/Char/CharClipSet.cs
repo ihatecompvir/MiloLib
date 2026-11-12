@@ -1,0 +1,394 @@
+using MiloLib.Utils;
+using MiloLib.Classes;
+
+namespace MiloLib.Assets.Char;
+
+[Name("CharClipSet"), Description("A CharClip container.")]
+public class CharClipSet : ObjectDir
+{
+    private Dictionary<Game.MiloGame, uint> gameRevisions = new()
+    {
+        // no dirs before this
+        { Game.MiloGame.GuitarHero2_PS2, 14 },
+        { Game.MiloGame.GuitarHero2_360, 16 },
+        { Game.MiloGame.Phase, 17 },
+        { Game.MiloGame.RockBand, 19 },
+        { Game.MiloGame.RockBand2, 23 },
+        { Game.MiloGame.LegoRockBand, 23 },
+        { Game.MiloGame.TheBeatlesRockBand, 24 },
+        { Game.MiloGame.GreenDayRockBand, 25 },
+        { Game.MiloGame.RockBand3, 24 },
+        { Game.MiloGame.DanceCentral, 24 },
+        { Game.MiloGame.DanceCentral2, 24 },
+        { Game.MiloGame.RockBandBlitz, 24 },
+        { Game.MiloGame.DanceCentral3, 24 }
+    };
+
+
+    public class CharClipPtr
+    {
+        public Symbol clip = Symbol.Empty;
+        public uint unk1;
+        public uint unk2;
+
+        public CharClipPtr Read(EndianReader reader)
+        {
+            clip = Symbol.Read(reader);
+            unk1 = reader.ReadUInt32();
+            unk2 = reader.ReadUInt32();
+
+            return this;
+        }
+
+        public void Write(EndianWriter writer)
+        {
+            Symbol.Write(writer, clip);
+            writer.WriteUInt32(unk1);
+            writer.WriteUInt32(unk2);
+        }
+
+        public override string ToString()
+        {
+            return $"{clip} {unk1} {unk2}";
+        }
+    }
+
+    public CharClipSet(ushort revision, ushort altRevision = 0) : base(revision, altRevision)
+    {
+        this.revision = revision;
+        this.altRevision = altRevision;
+    }
+
+    private ushort altRevision;
+    private ushort revision;
+
+    [Name("Character File Path"), Description("Preview base character to use- for example, char/male/male_guitar.milo for male guitarist"), MinVersion(18)]
+    public Symbol charFilePath = Symbol.Empty;
+
+    [Name("Preview Clip"), Description("Pick a clip to play"), MinVersion(18)]
+    public Symbol previewClip = Symbol.Empty;
+
+    [Name("Filter Flags"), Description("Flags for filtering preview clip"), MinVersion(20)]
+    public uint filterFlags;
+
+    [Name("BPM"), Description("bpm for clip playing"), MinVersion(21)]
+    public uint bpm;
+
+    [Name("Preview Walk"), Description("Allow preview character to move around and walk?"), MinVersion(22)]
+    public bool previewWalk;
+
+    [Name("Still Clip"), Description("Set this to view drummer play anims"), MinVersion(23)]
+    public Symbol stillClip = Symbol.Empty;
+
+    [MinVersion(25)]
+    public uint unkRevision25Value;
+
+    [MinVersion(0), MaxVersion(8)]
+    public Symbol graphPath = Symbol.Empty;
+
+    [MinVersion(14), MaxVersion(23)]
+    public bool unkBool1;
+    [MinVersion(19), MaxVersion(23)]
+    public bool unkBool2;
+    [MinVersion(5), MaxVersion(23)]
+    public bool unkBool3;
+    [MinVersion(11), MaxVersion(11)]
+    public bool unkBool4;
+
+
+    [MinVersion(0), MaxVersion(16)]
+    public int unkInt1;
+    [MinVersion(0), MaxVersion(16)]
+    public int unkInt2;
+    [MinVersion(15), MaxVersion(16)]
+    public int unkInt3;
+    [MaxVersion(6)]
+    public int unkInt4;
+    [MinVersion(10), MaxVersion(23)]
+    public int unkInt5;
+
+    [MinVersion(0)]
+    public Symbol unkSymbol = Symbol.Empty;
+    [MinVersion(10), MaxVersion(23)]
+    public Symbol unkSymbol2 = Symbol.Empty;
+
+    [MinVersion(0), MaxVersion(5)]
+    public Symbol unkSym = Symbol.Empty;
+
+    [MinVersion(0), MaxVersion(23)]
+    public List<CharClipPtr> charClipPtrs = new();
+
+    [MinVersion(0), MaxVersion(13)]
+    public List<Symbol> unkSymbolList = new();
+
+    [MinVersion(5), MaxVersion(23)]
+    public List<Symbol> unkStrings1 = new();
+    [MinVersion(5), MaxVersion(23)]
+    public List<Symbol> unkStrings2 = new();
+
+    public uint unkClipStructureCount = 0;
+
+    public new CharClipSet Read(EndianReader reader, bool standalone, DirectoryMeta parent, DirectoryMeta.Entry entry)
+    {
+        uint charClipCount = 0;
+        foreach (DirectoryMeta.Entry parentEntry in parent.entries)
+        {
+            if (parentEntry.type.value == "CharClipSamples" || parentEntry.type.value == "CharClip")
+            {
+                charClipCount++;
+            }
+        }
+
+
+        AssetHelpers.ReadRevision(reader, out revision, out altRevision);
+
+        base.Read(reader, false, parent, entry);
+
+        if (entry.isProxy)
+        {
+            if (standalone)
+            {
+                AssetHelpers.ReadEnd(reader, parent, entry, revision);
+            }
+
+            return this;
+        }
+
+        if (revision < 0x11)
+        {
+            unkInt1 = reader.ReadInt32();
+            unkInt2 = reader.ReadInt32();
+        }
+
+        if (revision == 0xF || revision == 0x10)
+        {
+            unkInt3 = reader.ReadInt32();
+        }
+
+        if (revision < 9)
+        {
+            graphPath = Symbol.Read(reader);
+        }
+
+        if (revision < 6)
+        {
+            unkSym = Symbol.Read(reader);
+        }
+
+        if (revision < 7)
+        {
+            unkInt4 = reader.ReadInt32();
+        }
+
+        // they do not store this in the asset itself, its calculated based on the number of CharClipSamples assets in the dir? weird shit, why HMX?
+        if (revision < 0x18)
+        {
+            for (int i = 0; i < charClipCount; i++)
+            {
+                CharClipPtr ptr = new();
+                ptr.Read(reader);
+                charClipPtrs.Add(ptr);
+            }
+        }
+
+        if (revision > 0xD)
+        {
+            if (revision < 0x18)
+            {
+                unkBool1 = reader.ReadBoolean();
+                if (revision > 0x12)
+                {
+                    unkBool2 = reader.ReadBoolean();
+                }
+            }
+        }
+        else
+        {
+            unkSymbolList = AssetHelpers.ReadList(reader, () => Symbol.Read(reader));
+        }
+
+        if (revision >= 5 && revision <= 0x17)
+        {
+            unkStrings1 = AssetHelpers.ReadList(reader, () => Symbol.Read(reader));
+
+            unkStrings2 = AssetHelpers.ReadList(reader, () => Symbol.Read(reader));
+            unkBool3 = reader.ReadBoolean();
+        }
+
+        if (revision >= 10 && revision <= 23)
+        {
+            unkSymbol2 = Symbol.Read(reader);
+            unkInt5 = reader.ReadInt32();
+        }
+
+        if (revision == 0xB)
+        {
+            unkBool4 = reader.ReadBoolean();
+        }
+
+
+
+        if (revision > 0x11)
+        {
+            charFilePath = Symbol.Read(reader);
+            previewClip = Symbol.Read(reader);
+        }
+        if (revision > 0x13)
+        {
+            filterFlags = reader.ReadUInt32();
+        }
+
+        if (revision > 0x14)
+        {
+            bpm = reader.ReadUInt32();
+        }
+
+        if (revision > 0x15)
+        {
+            previewWalk = reader.ReadBoolean();
+        }
+
+        if (revision > 0x16)
+        {
+            stillClip = Symbol.Read(reader);
+        }
+
+        if (revision >= 25)
+        {
+            unkRevision25Value = reader.ReadUInt32();
+        }
+
+        if (standalone)
+        {
+            AssetHelpers.ReadEnd(reader, parent, entry, revision);
+        }
+
+        return this;
+    }
+
+    public override void Write(EndianWriter writer, bool standalone, DirectoryMeta parent, DirectoryMeta.Entry? entry)
+    {
+        AssetHelpers.WriteRevision(writer, revision, altRevision);
+
+        base.Write(writer, false, parent, entry);
+
+        if (entry != null && entry.isProxy)
+        {
+            if (standalone)
+            {
+                writer.WriteEndBytes();
+            }
+
+            return;
+        }
+
+        if (revision < 0x11)
+        {
+            writer.WriteInt32(unkInt1);
+            writer.WriteInt32(unkInt2);
+        }
+
+        if (revision == 0xF || revision == 0x10)
+        {
+            writer.WriteInt32(unkInt3);
+        }
+
+        if (revision < 9)
+        {
+            Symbol.Write(writer, graphPath);
+        }
+
+        if (revision < 6)
+        {
+            Symbol.Write(writer, unkSym);
+        }
+
+        if (revision < 7)
+        {
+            writer.WriteInt32(unkInt4);
+        }
+
+        if (revision < 0x18)
+        {
+            foreach (CharClipPtr ptr in charClipPtrs)
+            {
+                ptr.Write(writer);
+            }
+        }
+
+        if (revision > 0xD)
+        {
+            if (revision < 0x18)
+            {
+                writer.WriteBoolean(unkBool1);
+                if (revision > 0x12)
+                {
+                    writer.WriteBoolean(unkBool2);
+                }
+            }
+        }
+        else
+        {
+            AssetHelpers.WriteList(writer, unkSymbolList, (Symbol symbol) => Symbol.Write(writer, symbol));
+        }
+
+        if (revision >= 5 && revision <= 0x17)
+        {
+            AssetHelpers.WriteList(writer, unkStrings1, (Symbol str) => Symbol.Write(writer, str));
+
+            AssetHelpers.WriteList(writer, unkStrings2, (Symbol str) => Symbol.Write(writer, str));
+            writer.WriteBoolean(unkBool3);
+        }
+
+        if (revision >= 10 && revision <= 23)
+        {
+            Symbol.Write(writer, unkSymbol2);
+            writer.WriteInt32(unkInt5);
+        }
+
+        if (revision == 0xB)
+        {
+            writer.WriteBoolean(unkBool4);
+        }
+
+        if (revision > 0x11)
+        {
+            Symbol.Write(writer, charFilePath);
+            Symbol.Write(writer, previewClip);
+        }
+        if (revision > 0x13)
+        {
+            writer.WriteUInt32(filterFlags);
+        }
+
+        if (revision > 0x14)
+        {
+            writer.WriteUInt32(bpm);
+        }
+
+        if (revision > 0x15)
+        {
+            writer.WriteBoolean(previewWalk);
+        }
+
+        if (revision > 0x16)
+        {
+            Symbol.Write(writer, stillClip);
+        }
+
+        if (revision >= 25)
+        {
+            writer.WriteUInt32(unkRevision25Value);
+        }
+
+        if (standalone)
+        {
+            writer.WriteEndBytes();
+        }
+    }
+
+    public override bool IsDirectory()
+    {
+        return true;
+    }
+}

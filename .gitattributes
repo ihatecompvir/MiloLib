@@ -1,0 +1,20 @@
+* text=auto
+
+*.cs      text diff=csharp
+*.csproj  text
+*.props   text
+*.targets text
+*.md      text
+*.json    text
+*.yml     text
+*.sln     text eol=crlf
+
+*.png   binary
+*.jpg   binary
+*.dds   binary
+*.tpl   binary
+*.dll   binary
+*.exe   binary
+*.milo* binary
+*.ark   binary
+*.hdr   binary

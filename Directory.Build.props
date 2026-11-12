@@ -1,0 +1,9 @@
+<Project>
+  <PropertyGroup>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <!-- catch some bugs which would have normally just been warnings, this way i dont make the same mistakes again lol -->
+    <WarningsAsErrors>$(WarningsAsErrors);CS0108;CS0114;CS1717</WarningsAsErrors>
+  </PropertyGroup>
+</Project>
