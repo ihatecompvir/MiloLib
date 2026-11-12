@@ -468,24 +468,13 @@ public class EndianWriter : IWriter, IDisposable
         if (_chunkMarks != null)
         {
             _chunkMarks.marks.Add(Position);
-        }
-    }
-
-    /// <summary>
-    ///     Records the current position as the end of a directory entry, which is also a place where a block may end.
-    /// </summary>
-    internal void MarkEntryEnd()
-    {
-        if (_chunkMarks != null)
-        {
-            _chunkMarks.marks.Add(Position);
-            _chunkMarks.entryEnds.Add(Position);
+            _chunkMarks.dirLoaderMarks.Add(Position);
         }
     }
 
     /// <summary>
     ///     Records the places where a block may end inside data the game reads in pieces of pieceSize bytes: after
-    ///     every piece from start, and at end.
+    ///     every piece from start, and at end. Only RB3 and later use this.
     /// </summary>
     internal void MarkChunks(long start, long end, int pieceSize)
     {

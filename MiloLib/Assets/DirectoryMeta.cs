@@ -1888,7 +1888,7 @@ public class DirectoryMeta
         {
             writer.WriteBlock(entry.ObjBytesSpan);
             writer.WriteEndBytes();
-            writer.MarkEntryEnd();
+            writer.MarkChunk();
             return;
         }
 
@@ -1917,7 +1917,7 @@ public class DirectoryMeta
             writer.WriteEndBytes();
         }
 
-        writer.MarkEntryEnd();
+        writer.MarkChunk();
         entry.OnAfterWrite(writer);
     }
 

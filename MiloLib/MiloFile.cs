@@ -11,12 +11,12 @@ namespace MiloLib;
 public class MiloFile
 {
     /// <summary>
-    /// The block size to aim for, except on Wii where this is halved
+    /// The block size to aim for. From RB3 on, Wii uses half of this size. Pre-RB3 appears to use this size on all platforms.
     /// </summary>
     private const int MAX_BLOCK_SIZE = 0x20000;
 
     /// <summary>
-    /// The first scene revision where chunking is confirmed to be used, earlier games seemingly don't do chunking in the same way
+    /// The first scene revision that the RB3-era ChunkStream writer saves.
     /// </summary>
     private const uint FIRST_CHUNK_REVISION = 28;
 
@@ -633,7 +633,7 @@ public class MiloFile
         dirMeta.Write(uncompressedWriter);
         uncompressedWriter.ChunkMarks = null;
 
-        List<uint> uncompressedBlockSizes = PlanBlocks(chunkMarks, uncompressedWriter.Length, effectiveType);
+        List<uint> uncompressedBlockSizes = PlanBlocks(chunkMarks, uncompressedWriter.Length);
         int headerCapacity = ((int)actualStartingOffset - 16) / 4;
         if (uncompressedBlockSizes.Count > headerCapacity)
         {
@@ -764,11 +764,11 @@ public class MiloFile
     /// <summary>
     /// Splits the saved body into blocks at the places recorded while it was written.
     /// </summary>
-    private List<uint> PlanBlocks(ChunkMarks chunkMarks, long bodyLength, Type type)
+    private List<uint> PlanBlocks(ChunkMarks chunkMarks, long bodyLength)
     {
         if (dirMeta.revision < FIRST_CHUNK_REVISION)
         {
-            return ChunkLayout.PlanLegacy(chunkMarks.entryEnds, bodyLength, MAX_BLOCK_SIZE, type == Type.CompressedZlibAlt);
+            return ChunkLayout.PlanPreRB3(chunkMarks.dirLoaderMarks, bodyLength, MAX_BLOCK_SIZE);
         }
 
         int recommendedSize = MAX_BLOCK_SIZE;
@@ -779,8 +779,28 @@ public class MiloFile
         return ChunkLayout.PlanHarmonix(chunkMarks.marks, bodyLength, recommendedSize);
     }
 
+    /// <summary>
+    /// A raw deflate stream with no data, as zlib writes it (Harmonix had empty blocks in the milos which .NETs compression would just otherwise drop)
+    /// </summary>
+    private static readonly byte[] EmptyDeflateBlock = { 0x03, 0x00 };
+
+    /// <summary>
+    /// A gzip member with no data.
+    /// </summary>
+    private static readonly byte[] EmptyGzipBlock = { 0x1F, 0x8B, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x0A, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+
     private static byte[] CompressBlock(byte[] buffer, int offset, int length, bool useGzip)
     {
+        // .NET writes no bytes for an empty block. The game must get a stream that it can inflate.
+        if (length == 0)
+        {
+            if (useGzip)
+            {
+                return EmptyGzipBlock;
+            }
+            return EmptyDeflateBlock;
+        }
+
         using MemoryStream blockStream = new();
         if (useGzip)
         {

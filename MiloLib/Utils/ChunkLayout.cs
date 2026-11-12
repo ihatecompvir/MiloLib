@@ -8,7 +8,7 @@ namespace MiloLib.Utils;
 internal sealed class ChunkMarks
 {
     public readonly List<long> marks = new();
-    public readonly List<long> entryEnds = new();
+    public readonly List<long> dirLoaderMarks = new();
 }
 
 /// <summary>
@@ -51,26 +51,27 @@ internal static class ChunkLayout
         return chunkWriter.blocks;
     }
 
-    // the old school (wrong) way of planning the chunk sizes, where they are split rigidly among object boundaries
-    public static List<uint> PlanLegacy(List<long> entryEnds, long length, int maxBlockSize, bool firstBlockAtFirstEntry)
+    // plans the chunk sizes how Harmonix did it before RB3 (cross-referneced with ChunkStream::MaybeWriteChunk)
+    // A block ends at the first mark where the block has chunkSize bytes or more
+    // The destructor always writes one more block. This block winds up empty if the last mark ended a block, which is technically
+    // a bug/oversight, but since we are aiming to produce byte-identical inputs and outputs, it must be preserved
+    public static List<uint> PlanPreRB3(List<long> marks, long length, int chunkSize)
     {
+        List<long> sortedMarks = new(marks);
+        sortedMarks.Sort();
+
         List<uint> blocks = new();
         long blockStart = 0;
-        foreach (long entryEnd in entryEnds)
+        foreach (long mark in sortedMarks)
         {
-            long blockLength = entryEnd - blockStart;
-            if (blockLength > maxBlockSize || (blocks.Count == 0 && firstBlockAtFirstEntry))
+            if (mark <= length && mark - blockStart >= chunkSize)
             {
-                blocks.Add((uint)blockLength);
-                blockStart = entryEnd;
+                blocks.Add((uint)(mark - blockStart));
+                blockStart = mark;
             }
         }
 
-        if (blocks.Count == 0 || length > blockStart)
-        {
-            blocks.Add((uint)(length - blockStart));
-        }
-
+        blocks.Add((uint)(length - blockStart));
         return blocks;
     }
 
